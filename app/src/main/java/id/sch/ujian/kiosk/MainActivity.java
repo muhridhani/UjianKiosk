@@ -3,12 +3,16 @@ package id.sch.ujian.kiosk;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.admin.DevicePolicyManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.InputType;
@@ -38,10 +42,18 @@ public class MainActivity extends Activity {
     private static final String DEFAULT_PIN = "123456";
 
     private WebView webView;
+    private TextView batteryView;
     private SharedPreferences prefs;
     private DevicePolicyManager dpm;
     private ComponentName admin;
     private long cornerDownAt;
+    private boolean batteryReceiverRegistered;
+
+    private final BroadcastReceiver batteryReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            updateBatteryPercentage(intent);
+        }
+    };
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -79,20 +91,28 @@ public class MainActivity extends Activity {
         TextView guard = new TextView(this);
         guard.setText("SMPN 3 Sungai Pandan");
         guard.setTextColor(Color.WHITE);
-        guard.setTextSize(15);
+        guard.setTextSize(13);
         guard.setGravity(Gravity.CENTER_VERTICAL);
         guard.setPadding(dp(4), 0, dp(6), 0);
         topBar.addView(guard, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
 
+        batteryView = new TextView(this);
+        batteryView.setText("--%");
+        batteryView.setTextColor(Color.WHITE);
+        batteryView.setTextSize(12);
+        batteryView.setGravity(Gravity.CENTER);
+        batteryView.setContentDescription("Persentase baterai");
+        topBar.addView(batteryView, new LinearLayout.LayoutParams(dp(46), ViewGroup.LayoutParams.MATCH_PARENT));
+
         TextView rotateButton = makeTopButton("ROTASI");
         rotateButton.setContentDescription("Putar layar");
         rotateButton.setOnClickListener(v -> toggleOrientation());
-        topBar.addView(rotateButton, new LinearLayout.LayoutParams(dp(72), dp(34)));
+        topBar.addView(rotateButton, new LinearLayout.LayoutParams(dp(62), dp(34)));
 
         TextView exitButton = makeTopButton("KELUAR");
         exitButton.setContentDescription("Keluar aplikasi dengan PIN admin");
         exitButton.setOnClickListener(v -> showExitLogin());
-        LinearLayout.LayoutParams exitParams = new LinearLayout.LayoutParams(dp(72), dp(34));
+        LinearLayout.LayoutParams exitParams = new LinearLayout.LayoutParams(dp(62), dp(34));
         exitParams.setMarginStart(dp(6));
         topBar.addView(exitButton, exitParams);
 
@@ -149,6 +169,39 @@ public class MainActivity extends Activity {
         setRequestedOrientation(portrait
                 ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                 : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+    }
+
+    private void updateBatteryPercentage(Intent intent) {
+        if (intent == null || batteryView == null) return;
+        int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+        int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+        if (level < 0 || scale <= 0) {
+            batteryView.setText("--%");
+            return;
+        }
+        int percentage = Math.round(level * 100f / scale);
+        batteryView.setText(String.format(Locale.ROOT, "%d%%", percentage));
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        Intent current;
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            current = registerReceiver(batteryReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            current = registerReceiver(batteryReceiver, filter);
+        }
+        batteryReceiverRegistered = true;
+        updateBatteryPercentage(current);
+    }
+
+    @Override protected void onStop() {
+        if (batteryReceiverRegistered) {
+            unregisterReceiver(batteryReceiver);
+            batteryReceiverRegistered = false;
+        }
+        super.onStop();
     }
 
     private void enterKiosk() {

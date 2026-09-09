@@ -6,6 +6,8 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -68,16 +70,35 @@ public class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.WHITE);
 
+        LinearLayout topBar = new LinearLayout(this);
+        topBar.setOrientation(LinearLayout.HORIZONTAL);
+        topBar.setGravity(Gravity.CENTER_VERTICAL);
+        topBar.setPadding(dp(8), 0, dp(6), 0);
+        topBar.setBackgroundColor(Color.rgb(13, 71, 161));
+
         TextView guard = new TextView(this);
-        guard.setText("UJIAN");
+        guard.setText("SMPN 3 Sungai Pandan");
         guard.setTextColor(Color.WHITE);
-        guard.setTextSize(12);
+        guard.setTextSize(15);
         guard.setGravity(Gravity.CENTER_VERTICAL);
-        guard.setPadding(dp(12), 0, 0, 0);
-        guard.setBackgroundColor(Color.rgb(13, 71, 161));
-        root.addView(guard, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(34)));
+        guard.setPadding(dp(4), 0, dp(6), 0);
+        topBar.addView(guard, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
+
+        TextView rotateButton = makeTopButton("ROTASI");
+        rotateButton.setContentDescription("Putar layar");
+        rotateButton.setOnClickListener(v -> toggleOrientation());
+        topBar.addView(rotateButton, new LinearLayout.LayoutParams(dp(72), dp(34)));
+
+        TextView exitButton = makeTopButton("KELUAR");
+        exitButton.setContentDescription("Keluar aplikasi dengan PIN admin");
+        exitButton.setOnClickListener(v -> showExitLogin());
+        LinearLayout.LayoutParams exitParams = new LinearLayout.LayoutParams(dp(72), dp(34));
+        exitParams.setMarginStart(dp(6));
+        topBar.addView(exitButton, exitParams);
+
+        root.addView(topBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46)));
         guard.setOnTouchListener((v, event) -> {
-            if (event.getAction() == MotionEvent.ACTION_DOWN && event.getX() < dp(72)) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 cornerDownAt = SystemClock.elapsedRealtime();
                 return true;
             }
@@ -109,6 +130,25 @@ public class MainActivity extends Activity {
         });
         root.addView(webView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(root);
+    }
+
+    private TextView makeTopButton(String label) {
+        TextView button = new TextView(this);
+        button.setText(label);
+        button.setTextColor(Color.rgb(13, 71, 161));
+        button.setTextSize(11);
+        button.setGravity(Gravity.CENTER);
+        button.setBackgroundColor(Color.WHITE);
+        button.setClickable(true);
+        button.setFocusable(true);
+        return button;
+    }
+
+    private void toggleOrientation() {
+        boolean portrait = getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT;
+        setRequestedOrientation(portrait
+                ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
     }
 
     private void enterKiosk() {
@@ -147,6 +187,33 @@ public class MainActivity extends Activity {
         dialog.show();
     }
 
+    private void showExitLogin() {
+        EditText pin = new EditText(this);
+        pin.setHint("Kode admin");
+        pin.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        pin.setPadding(dp(24), dp(8), dp(24), 0);
+        final boolean[] exiting = {false};
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Keluar Aplikasi")
+                .setMessage("Masukkan kode admin yang sama dengan kode pengaturan link.")
+                .setView(pin)
+                .setPositiveButton("Keluar", null)
+                .setNegativeButton("Batal", null).create();
+        dialog.setOnShowListener(x -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            if (sha256(pin.getText().toString()).equals(prefs.getString(KEY_PIN, ""))) {
+                exiting[0] = true;
+                dialog.dismiss();
+                exitKiosk();
+            } else {
+                pin.setError("Kode salah");
+            }
+        }));
+        dialog.setOnDismissListener(x -> {
+            if (!exiting[0]) enterKiosk();
+        });
+        dialog.show();
+    }
+
     private void showSettings() {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
@@ -162,7 +229,7 @@ public class MainActivity extends Activity {
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Panel Admin")
-                .setMessage("Tekan dan tahan tulisan UJIAN selama 4 detik untuk membuka panel ini.")
+                .setMessage("Tekan dan tahan nama sekolah selama 4 detik untuk membuka panel ini.")
                 .setView(form)
                 .setPositiveButton("Simpan & Mulai", null)
                 .setNeutralButton("Muat Ulang", null)

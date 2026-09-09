@@ -9,6 +9,7 @@ Aplikasi WebView untuk membuka alamat ujian (URL/domain/IP lokal) dan mengunci p
 - Nama sekolah **SMPN 3 Sungai Pandan** tampil pada bilah atas.
 - Tombol **ROTASI** mengganti tampilan potret dan lanskap tanpa menutup halaman ujian.
 - Tombol **KELUAR** meminta PIN admin yang sama dengan PIN pengaturan link.
+- Persentase baterai tampil secara real-time pada bilah atas.
 - PIN admin disimpan sebagai hash SHA-256, bukan teks biasa.
 - Tombol Back dinonaktifkan, tampilan layar penuh, dan tautan selain HTTP/HTTPS diblokir.
 - Lock Task/kiosk penuh bila aplikasi dijadikan **Device Owner**.
